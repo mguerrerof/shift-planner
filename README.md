@@ -3,6 +3,8 @@ Planning Management
 
 ## Install 
 
+**Python version:** 3.13.0
+
 Execute the following command:
 ```
 pip install -r requirements.txt
