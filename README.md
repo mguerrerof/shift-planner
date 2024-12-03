@@ -3,7 +3,7 @@ Planning Management
 
 ## Install 
 
-Execute following command:
+Execute the following command:
 ```
 pip install -r requirements.txt
 ````
