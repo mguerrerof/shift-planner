@@ -10,14 +10,23 @@ Execute the following command:
 pip install -r requirements.txt
 ````
 
-## Sample
+### Num employees in each shift
 
-![alt text](doc/sample_1.png)
+![alt text](doc/all_employees_in_shift.png)
 
-### Filtering by 2 persons:
+### 3 employees:
 
-![alt text](doc/sample_2.png)
+![alt text](doc/3_employees_with_2_shifts.png)
 
+### 30 days with 3 employees:
+
+![alt text](doc/30_days.png)
+
+
+### Export to Excel
 ```
-work_table[["Employee_1", "Employee_2"]].to_excel("employee_schedule_two_employees.xlsx", sheet_name="Work Schedule")
+output_filename = "../samples/m_a_2025.xlsx"
+employees_info.index = pd.to_datetime(employees_info.index)
+employees_info.index = employees_info.index.strftime("%Y-%m-%d")
+employees_info.to_excel(output_filename, sheet_name="Shift Schedule")
 ```
