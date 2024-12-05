@@ -28,7 +28,9 @@ pip install -r requirements.txt
 
  ### Transpose table
 
-![alt text](doc/transpose_table.png)
+![alt text](doc/transpose_table_1.png)
+
+![alt text](doc/transpose_table_2.png)
 
 ### Export to Excel
 ```
