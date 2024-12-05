@@ -22,6 +22,8 @@ pip install -r requirements.txt
 
 ![alt text](doc/30_days.png)
 
+### Sample with a transpose table
+![alt text](doc/transpose_table.png)
 
 ### Export to Excel
 ```
