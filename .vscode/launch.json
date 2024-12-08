@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Planning",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/planning/planning.py",
+            "cwd": "${workspaceFolder}/src/planning/",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src/planning"
+            },
+            "args": [
+            ],
+            "stopOnEntry": false,
+            "justMyCode": false
+        }
+    ]
+}

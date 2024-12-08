@@ -1,0 +1,140 @@
+{
+    "editor.quickSuggestions": {
+        "comments": false,
+        "strings": true,
+        "other": true
+    },
+    "files.encoding": "utf8",
+    "files.autoGuessEncoding": false,
+    "logViewer.watch": [
+        {
+            "groupName": "Behave",
+            "watches": [
+                {
+                    "title": "acceptance_int",
+                    "pattern": "acceptance/_output/acceptance_int.log"
+                }
+            ]
+        }
+    ],
+    "gherkiner.padding.symbol": "space",
+    "gherkiner.padding.table": 10,
+    "gherkiner.formatOnSave": true,
+    "gherkiner.paddings": [
+        {
+            "keyword": "Feature",
+            "padding": 0
+        },
+        {
+            "keyword": "Scenario",
+            "padding": 2
+        },
+        {
+            "keyword": "Given",
+            "padding": 4
+        },
+        {
+            "keyword": "When",
+            "padding": 5
+        },
+        {
+            "keyword": "Then",
+            "padding": 5
+        },
+        {
+            "keyword": "And",
+            "padding": 6
+        },
+        {
+            "keyword": "But",
+            "padding": 6
+        },
+        {
+            "keyword": "Background",
+            "padding": 2
+        },
+        {
+            "keyword": "Before Action",
+            "padding": 2
+        },
+        {
+            "keyword": "Actions Before the Feature:",
+            "padding": 2
+        },
+        {
+            "keyword": "Actions After the Feature:",
+            "padding": 2
+        },
+        {
+            "keyword": "Actions Before Each Scenario:",
+            "padding": 2
+        },
+        {
+            "keyword": "Actions After Each Scenario:",
+            "padding": 2
+        },
+        {
+            "keyword": "Examples",
+            "padding": 4
+        },
+        {
+            "keyword": "\"\"\"",
+            "padding": 10
+        }
+    ],
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/tests/acceptance/"
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "never"
+        }
+    },
+    "ruff.configuration": "../ruff.toml",
+    "ruff.lineLength": 120,
+    "ansibleVaultInline.encryptVaultId": "",
+    "autoDocstring.docstringFormat": "one-line-sphinx",
+    "pylint.args": [
+        "--rcfile=${workspaceFolder}/tests/acceptance/.pylintrc",
+        "--max-line-length=120"
+    ],
+    "vs-browser.url": "http://localhost:8081/#/",
+    "makefile.makefilePath": "./tests/acceptance/makefile",
+    "workbench.editor.enablePreview": false,
+    "VsCodeTaskButtons.showCounter": false,
+    "VsCodeTaskButtons.tasks": [
+        {
+            "label": "$(search-refresh) Executions",
+            "task": "executions",
+            "tooltip": "🛠️ JIRA executions"
+        },
+        {
+            "label": "$(notebook-delete-cell) Clean",
+            "task": "clean",
+            "tooltip": "🧹 Delete temporary files"
+        },
+        {
+            "label": "$(notebook-move-up) Jira Upload",
+            "task": "jira upload",
+            "tooltip": "⬆️ Jira upload"
+        },
+        {
+            "label": "$(callhierarchy-incoming) Reserve line",
+            "task": "reserve line",
+            "tooltip": "📞 Reserve line"
+        }
+    ],
+    "files.exclude": {
+        "**/*.log": true,
+        "**/dist": true,
+        "**/.history": true,
+        "**/.idea": true
+    },
+    "[markdown]": {
+        "editor.wordWrap": "off"
+    },
+    "editor.wordWrap": "off",
+    "editor.accessibilitySupport": "off"
+}

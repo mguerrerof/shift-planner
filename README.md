@@ -1,14 +1,46 @@
 # planning
 Planning Management
 
+## Changelog
+
+For a detailed list of changes, please refer to the [CHANGELOG](CHANGELOG.md).
+
 ## Install 
 
 **Python version:** 3.13.0
 
-Execute the following command:
+Execute the following command from the project root:
 ```
 pip install -r requirements.txt
 ````
+
+## Samples
+
+### Execution from VSCode:
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Planning",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/planning/planning.py",
+            "cwd": "${workspaceFolder}/src/planning/",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src/planning"
+            },
+            "args": [
+            ],
+            "stopOnEntry": false,
+            "justMyCode": false
+        }
+    ]
+}
+```
+
+### Jupyter notebooks
+There are two Jupyter notebooks (`basic_planning.ipynb` and `advanced_planning.ipynb`) that allow the generation of schedules.
 
 ### Num employees in each shift
 
@@ -26,21 +58,23 @@ pip install -r requirements.txt
 
 ![alt text](doc/30_days.png)
 
- ### Transpose table
+### Transpose table
 
 ![alt text](doc/transpose_table_1.png)
+
+As can be seen in the screenshot, cells will appear in red when there are no people needed to cover the work positions.
 
 ![alt text](doc/transpose_table_2.png)
 
 ### Export to Excel
-```
+```python
 output_filename = "samples/m_a_2025.xlsx"
 employees_info.index = pd.to_datetime(employees_info.index)
 employees_info.index = employees_info.index.strftime("%Y-%m-%d")
 employees_info.to_excel(output_filename, sheet_name="Shift Schedule")
 ```
 
-```
+```python
 output_filename = "samples/m_a_2025_transpose.xlsx"
 transposed_employees_info.to_excel(output_filename, sheet_name="Shift Schedule")
 
@@ -93,3 +127,4 @@ for row in worksheet.iter_rows(
 
 workbook.save(output_filename)
 ```
+
