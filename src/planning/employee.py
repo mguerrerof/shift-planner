@@ -486,22 +486,40 @@ def generate_summary_month(employees, employee_restrictions, planning_data):
     :param planning_data:
     :return:
     """
-    planning_data["THT"] = planning_data.apply(
+    planning_data["THT"] = planning_data.iloc[1:].apply(
         lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0) + row.value_counts().get("N", 0))
         * employee_restrictions["hours_per_shift"],
         axis=1,
     )
 
-    planning_data["MH"] = planning_data.index.map(
-        lambda emp: employees[emp]["max_hours_year"] if emp in employees else np.nan
-    )
-    planning_data["Diff"] = planning_data["MH"] - planning_data["THT"]
-
     sum_m_t = planning_data.apply(lambda col: col.isin(["M", "T", "N"]).sum(), axis=0)
     new_row = pd.Series(sum_m_t, name="Total")
     planning_data = pd.concat([planning_data, new_row.to_frame().T])
 
-    planning_data.loc["Total", ["THT", "MH", "Diff"]] = [np.nan] * 3
+
+def generate_summary_total(employees, employee_restrictions, planning_data):
+    total_data = {
+        "THT": 0,
+        "MHA": 0,
+        "Diff": 0,
+    }
+
+    for month in range(1, 13):
+        month_str = f"{month:02d}"
+        generate_summary_month(employees, employee_restrictions, planning_data[month_str])
+        total_data["THT"] += planning_data[month_str]["THT"]
+
+    total_data["MHA"] = planning_data["01"].index.map(
+        lambda emp: employees[emp]["max_hours_year"] if emp in employees else np.nan
+    )
+
+    total_data["Diff"] = total_data["MHA"] - total_data["THT"]
+
+    total_data_df = pd.DataFrame(total_data)
+
+    total_data = total_data_df[total_data_df.index.notnull() & (total_data_df.index != "")]
+
+    return total_data
 
 
 def generate_transposed_excel_with_styles(transposed_employees_info, employee_restrictions, filename):
