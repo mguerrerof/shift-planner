@@ -2,7 +2,7 @@ start_date = "2025-01-01"
 num_days = 365
 
 employee_restrictions = {
-    "hours_per_shift": 7,
+    "hours_per_shift": 7.5,
     "max_hours_week_employee": 37.5,
     "max_hours_year_employee": 1852.5,
     "min_weekend_rest_month_employee": 1,

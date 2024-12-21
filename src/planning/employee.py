@@ -57,7 +57,7 @@ def create_employees_with_dates(start_date, num_days, employees):
     :return:
     """
     dates = pd.date_range(start=start_date, periods=num_days, freq="D")
-    employees_info = pd.DataFrame(index=dates, columns=[emp["name"] for emp in employees], data="")
+    employees_info = pd.DataFrame(index=dates, columns=[emp for emp in employees.keys()], data="")
     return employees_info, dates
 
 
@@ -461,14 +461,12 @@ def generate_summary(employees, employee_restrictions, transposed_employees_info
     :return:
     """
     transposed_employees_info["THT"] = transposed_employees_info.apply(
-        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0))
+        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0) + row.value_counts().get("N", 0))
         * employee_restrictions["hours_per_shift"],
         axis=1,
     )
 
-    transposed_employees_info["MH"] = transposed_employees_info.index.map(
-        lambda emp: next(employee["max_hours_year"] for employee in employees if employee["name"] == emp)
-    )
+    transposed_employees_info["MH"] = transposed_employees_info.index.map(lambda emp: employees[emp]["max_hours_year"])
     transposed_employees_info["Diff"] = transposed_employees_info["MH"] - transposed_employees_info["THT"]
 
     sum_m_t = transposed_employees_info.apply(lambda col: col.isin(["M", "T"]).sum(), axis=0)
@@ -478,6 +476,32 @@ def generate_summary(employees, employee_restrictions, transposed_employees_info
     transposed_employees_info.loc["Total", ["THT", "MH", "Diff"]] = [np.nan] * 3
 
     return transposed_employees_info
+
+
+def generate_summary_month(employees, employee_restrictions, planning_data):
+    """Generate summary month.
+
+    :param employees:
+    :param employee_restrictions:
+    :param planning_data:
+    :return:
+    """
+    planning_data["THT"] = planning_data.apply(
+        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0) + row.value_counts().get("N", 0))
+        * employee_restrictions["hours_per_shift"],
+        axis=1,
+    )
+
+    planning_data["MH"] = planning_data.index.map(
+        lambda emp: employees[emp]["max_hours_year"] if emp in employees else np.nan
+    )
+    planning_data["Diff"] = planning_data["MH"] - planning_data["THT"]
+
+    sum_m_t = planning_data.apply(lambda col: col.isin(["M", "T", "N"]).sum(), axis=0)
+    new_row = pd.Series(sum_m_t, name="Total")
+    planning_data = pd.concat([planning_data, new_row.to_frame().T])
+
+    planning_data.loc["Total", ["THT", "MH", "Diff"]] = [np.nan] * 3
 
 
 def generate_transposed_excel_with_styles(transposed_employees_info, employee_restrictions, filename):
@@ -560,13 +584,65 @@ def assign_vacations(employees_info):
     """
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    vacations_file = os.path.join(script_dir, "vacations.yaml")
+    vacations_file = os.path.join(script_dir, "data/vacations.yaml")
     with open(vacations_file) as file:
         vacations = yaml.safe_load(file)
 
-    # Asignar vacaciones a los empleados
     for employee, days in vacations.items():
         for day in days:
             day = pd.Timestamp(day)
             if day in employees_info.index:
                 employees_info.loc[day, employee] = "V"
+
+
+def load_planning_from_yaml(employees_info, planning_file):
+    """Load planning from a YAML file.
+
+    :param employees_info:
+    :param planning_file:
+    """
+    with open(planning_file) as file:
+        shifts = yaml.safe_load(file)
+
+    for day, shifts_info in shifts.items():
+        day = pd.Timestamp(day)
+        for shift, employees in shifts_info.items():
+            if employees is not None:
+                for employee in employees:
+                    employees_info.loc[day, employee] = shift
+
+
+def load_planning_from_xlsx(employees_info, planning_file):
+    """Load planning from an Excel file.
+
+    :param employees_info:
+    :param planning_file:
+    """
+
+    pass
+
+
+def load_employees_from_yaml(employees_file, employee_restrictions):
+    """Load employees from a YAML file.
+
+    :param employees_file:
+    :param employee_restrictions:
+    :return:
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    working_days_file = os.path.join(script_dir, employees_file)
+    with open(working_days_file) as file:
+        employees_data = yaml.safe_load(file)
+
+    employees = {}
+    for one_employee, one_employee_info in employees_data.items():
+        employees.setdefault(one_employee, {})["capacity"] = one_employee_info["capacity"]
+        employees[one_employee]["name"] = one_employee_info["name"]
+        employees[one_employee]["max_hours_year"] = (
+            employee_restrictions["max_hours_year_employee"] * one_employee_info["capacity"]
+        )
+        employees[one_employee]["max_hours_week"] = (
+            employee_restrictions["max_hours_week_employee"] * one_employee_info["capacity"]
+        )
+
+    return employees
