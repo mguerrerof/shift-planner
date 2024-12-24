@@ -58,6 +58,9 @@ There are two Jupyter notebooks (`basic_planning.ipynb` and `advanced_planning.i
 
 ![alt text](doc/30_days.png)
 
+### Process month:
+![alt text](doc/process_month.png)
+
 ### Transpose table
 
 ![alt text](doc/transpose_table_1.png)
