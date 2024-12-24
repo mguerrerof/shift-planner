@@ -1,10 +1,12 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 import yaml
-from openpyxl import load_workbook
+from openpyxl import (
+    load_workbook,
+)
 from openpyxl.styles import (
     Alignment,
     Border,
@@ -12,6 +14,8 @@ from openpyxl.styles import (
     PatternFill,
     Side,
 )
+from openpyxl.utils.dataframe import dataframe_to_rows
+from pandas.core.indexes.frozen import FrozenList
 
 
 def create_employees(employee_restrictions):
@@ -92,7 +96,7 @@ def get_weekends_of_month(year, month):
 
     weekends_df = pd.DataFrame(weekends, columns=["Date"])
 
-    num_weekends = len(weekends_df) // 2  # Each weekend has 2 day
+    num_weekends = len(weekends_df) // 2
 
     return weekends_df, num_weekends
 
@@ -131,7 +135,7 @@ def count_remaining_weekends(date):
     if isinstance(weekends_df, pd.DataFrame) and "Date" in weekends_df.columns:
         remaining_weekends = weekends_df[weekends_df["Date"] > date]
 
-        num_remaining_weekends = len(remaining_weekends) // 2  # Cada fin de semana tiene 2 días
+        num_remaining_weekends = len(remaining_weekends) // 2
     else:
         num_remaining_weekends = 0
 
@@ -353,7 +357,9 @@ def load_data_by_date(all_employees_by_shift, employee_restrictions, employees_i
 
                     total_sum_m_t = employees_info[employee].isin(["M", "T"]).sum()
 
-                    employee_capacity = next(emp["capacity"] for emp in employees if emp["name"] == employee)
+                    employee_capacity = next(
+                        emp["capacity"] for key_emp, emp in employees.items() if key_emp == employee
+                    )
                     if (
                         (
                             (total_sum_m_t * employee_restrictions["hours_per_shift"])
@@ -595,14 +601,13 @@ def generate_transposed_excel_with_styles(transposed_employees_info, employee_re
     workbook.save(output_filename)
 
 
-def assign_vacations(employees_info):
+def assign_vacations(employees_info, vacations_file):
     """Assign vacations to employees.
 
     :param employees_info: DataFrame with employee information
+    :param vacations_file: Path to the vacations file
     """
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    vacations_file = os.path.join(script_dir, "data/vacations.yaml")
     with open(vacations_file) as file:
         vacations = yaml.safe_load(file)
 
@@ -664,3 +669,112 @@ def load_employees_from_yaml(employees_file, employee_restrictions):
         )
 
     return employees
+
+
+def export_month(workbook, month_number, planning_data):
+    """Export month.
+
+    :param workbook:
+    :param month_number:
+    :param planning_data:
+    """
+    month = str(datetime.strptime(month_number, "%m").strftime("%B")).title()
+
+    df = planning_data[month_number]
+    df.columns = [datetime.strptime(col, "%d/%m/%y").strftime("%d") if "/" in col else col for col in df.columns]
+
+    worksheet = workbook.create_sheet(title=month)
+
+    worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(df.columns) + 1)
+    worksheet.cell(row=1, column=1, value=month)
+
+    r_idx = 2
+    for row in dataframe_to_rows(df, index=True, header=True):
+        if isinstance(row, FrozenList):
+            continue
+        c_idx = 1
+        for value in row:
+            cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            thin_border = Border(
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+            )
+            cell.border = thin_border
+            c_idx += 1
+        r_idx += 1
+
+    for cell in worksheet[1]:
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.font = Font(bold=True)
+        cell.border = thin_border
+
+    min_width = 3
+    for col in worksheet.iter_cols():
+        for cell in col:
+            if not any(cell.coordinate in merged_cell for merged_cell in worksheet.merged_cells.ranges):
+                column = cell.column_letter
+                worksheet.column_dimensions[column].width = min_width
+                break
+
+    column_letter = worksheet.cell(row=2, column=worksheet.max_column).column_letter
+    worksheet.column_dimensions[column_letter].width = 7
+    for cell in worksheet[column_letter]:
+        cell.alignment = Alignment(horizontal="center")
+
+    first_column_letter = worksheet.cell(row=1, column=1).column_letter
+    worksheet.column_dimensions[first_column_letter].width = 3
+
+    fill = PatternFill(start_color="0099FF", end_color="0099FF", fill_type="solid")
+    font = Font(color="FFFFFF", bold=True)
+
+    for cell in worksheet[1]:
+        cell.fill = fill
+        cell.font = font
+
+    weekend_fill = PatternFill(start_color="9CCCE8", end_color="9CCCE8", fill_type="solid")
+
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+
+    for col in worksheet.iter_cols(min_row=3, max_row=worksheet.max_row, min_col=2, max_col=worksheet.max_column):
+        day_of_week_cell = col[0]
+        if day_of_week_cell.value in ["S", "D"]:
+            for cell in col:
+                cell.fill = weekend_fill
+
+    for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+
+def add_total_data(workbook, total_data):
+    """Add total data.
+
+    :param workbook:
+    :param total_data:
+    """
+    worksheet = workbook.create_sheet(title="Total")
+
+    for r_idx, row in enumerate(dataframe_to_rows(total_data, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            thin_border = Border(
+                left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin")
+            )
+            cell.border = thin_border
+
+    fill = PatternFill(start_color="0099FF", end_color="0099FF", fill_type="solid")
+    font = Font(color="FFFFFF", bold=True)
+
+    for cell in worksheet[1]:
+        cell.fill = fill
+        cell.font = font
