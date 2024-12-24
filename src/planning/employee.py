@@ -1,10 +1,12 @@
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
 import yaml
-from openpyxl import load_workbook
+from openpyxl import (
+    load_workbook,
+)
 from openpyxl.styles import (
     Alignment,
     Border,
@@ -12,6 +14,8 @@ from openpyxl.styles import (
     PatternFill,
     Side,
 )
+from openpyxl.utils.dataframe import dataframe_to_rows
+from pandas.core.indexes.frozen import FrozenList
 
 
 def create_employees(employee_restrictions):
@@ -57,7 +61,7 @@ def create_employees_with_dates(start_date, num_days, employees):
     :return:
     """
     dates = pd.date_range(start=start_date, periods=num_days, freq="D")
-    employees_info = pd.DataFrame(index=dates, columns=[emp["name"] for emp in employees], data="")
+    employees_info = pd.DataFrame(index=dates, columns=[emp for emp in employees.keys()], data="")
     return employees_info, dates
 
 
@@ -92,7 +96,7 @@ def get_weekends_of_month(year, month):
 
     weekends_df = pd.DataFrame(weekends, columns=["Date"])
 
-    num_weekends = len(weekends_df) // 2  # Each weekend has 2 day
+    num_weekends = len(weekends_df) // 2
 
     return weekends_df, num_weekends
 
@@ -131,7 +135,7 @@ def count_remaining_weekends(date):
     if isinstance(weekends_df, pd.DataFrame) and "Date" in weekends_df.columns:
         remaining_weekends = weekends_df[weekends_df["Date"] > date]
 
-        num_remaining_weekends = len(remaining_weekends) // 2  # Cada fin de semana tiene 2 días
+        num_remaining_weekends = len(remaining_weekends) // 2
     else:
         num_remaining_weekends = 0
 
@@ -353,7 +357,9 @@ def load_data_by_date(all_employees_by_shift, employee_restrictions, employees_i
 
                     total_sum_m_t = employees_info[employee].isin(["M", "T"]).sum()
 
-                    employee_capacity = next(emp["capacity"] for emp in employees if emp["name"] == employee)
+                    employee_capacity = next(
+                        emp["capacity"] for key_emp, emp in employees.items() if key_emp == employee
+                    )
                     if (
                         (
                             (total_sum_m_t * employee_restrictions["hours_per_shift"])
@@ -461,14 +467,12 @@ def generate_summary(employees, employee_restrictions, transposed_employees_info
     :return:
     """
     transposed_employees_info["THT"] = transposed_employees_info.apply(
-        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0))
+        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0) + row.value_counts().get("N", 0))
         * employee_restrictions["hours_per_shift"],
         axis=1,
     )
 
-    transposed_employees_info["MH"] = transposed_employees_info.index.map(
-        lambda emp: next(employee["max_hours_year"] for employee in employees if employee["name"] == emp)
-    )
+    transposed_employees_info["MH"] = transposed_employees_info.index.map(lambda emp: employees[emp]["max_hours_year"])
     transposed_employees_info["Diff"] = transposed_employees_info["MH"] - transposed_employees_info["THT"]
 
     sum_m_t = transposed_employees_info.apply(lambda col: col.isin(["M", "T"]).sum(), axis=0)
@@ -478,6 +482,50 @@ def generate_summary(employees, employee_restrictions, transposed_employees_info
     transposed_employees_info.loc["Total", ["THT", "MH", "Diff"]] = [np.nan] * 3
 
     return transposed_employees_info
+
+
+def generate_summary_month(employees, employee_restrictions, planning_data):
+    """Generate summary month.
+
+    :param employees:
+    :param employee_restrictions:
+    :param planning_data:
+    :return:
+    """
+    planning_data["THT"] = planning_data.iloc[1:].apply(
+        lambda row: (row.value_counts().get("M", 0) + row.value_counts().get("T", 0) + row.value_counts().get("N", 0))
+        * employee_restrictions["hours_per_shift"],
+        axis=1,
+    )
+
+    sum_m_t = planning_data.apply(lambda col: col.isin(["M", "T", "N"]).sum(), axis=0)
+    new_row = pd.Series(sum_m_t, name="Total")
+    planning_data = pd.concat([planning_data, new_row.to_frame().T])
+
+
+def generate_summary_total(employees, employee_restrictions, planning_data):
+    total_data = {
+        "THT": 0,
+        "MHA": 0,
+        "Diff": 0,
+    }
+
+    for month in range(1, 13):
+        month_str = f"{month:02d}"
+        generate_summary_month(employees, employee_restrictions, planning_data[month_str])
+        total_data["THT"] += planning_data[month_str]["THT"]
+
+    total_data["MHA"] = planning_data["01"].index.map(
+        lambda emp: employees[emp]["max_hours_year"] if emp in employees else np.nan
+    )
+
+    total_data["Diff"] = total_data["MHA"] - total_data["THT"]
+
+    total_data_df = pd.DataFrame(total_data)
+
+    total_data = total_data_df[total_data_df.index.notnull() & (total_data_df.index != "")]
+
+    return total_data
 
 
 def generate_transposed_excel_with_styles(transposed_employees_info, employee_restrictions, filename):
@@ -553,20 +601,180 @@ def generate_transposed_excel_with_styles(transposed_employees_info, employee_re
     workbook.save(output_filename)
 
 
-def assign_vacations(employees_info):
+def assign_vacations(employees_info, vacations_file):
     """Assign vacations to employees.
 
     :param employees_info: DataFrame with employee information
+    :param vacations_file: Path to the vacations file
     """
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    vacations_file = os.path.join(script_dir, "vacations.yaml")
     with open(vacations_file) as file:
         vacations = yaml.safe_load(file)
 
-    # Asignar vacaciones a los empleados
     for employee, days in vacations.items():
         for day in days:
             day = pd.Timestamp(day)
             if day in employees_info.index:
                 employees_info.loc[day, employee] = "V"
+
+
+def load_planning_from_yaml(employees_info, planning_file):
+    """Load planning from a YAML file.
+
+    :param employees_info:
+    :param planning_file:
+    """
+    with open(planning_file) as file:
+        shifts = yaml.safe_load(file)
+
+    for day, shifts_info in shifts.items():
+        day = pd.Timestamp(day)
+        for shift, employees in shifts_info.items():
+            if employees is not None:
+                for employee in employees:
+                    employees_info.loc[day, employee] = shift
+
+
+def load_planning_from_xlsx(employees_info, planning_file):
+    """Load planning from an Excel file.
+
+    :param employees_info:
+    :param planning_file:
+    """
+
+    pass
+
+
+def load_employees_from_yaml(employees_file, employee_restrictions):
+    """Load employees from a YAML file.
+
+    :param employees_file:
+    :param employee_restrictions:
+    :return:
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    working_days_file = os.path.join(script_dir, employees_file)
+    with open(working_days_file) as file:
+        employees_data = yaml.safe_load(file)
+
+    employees = {}
+    for one_employee, one_employee_info in employees_data.items():
+        employees.setdefault(one_employee, {})["capacity"] = one_employee_info["capacity"]
+        employees[one_employee]["name"] = one_employee_info["name"]
+        employees[one_employee]["max_hours_year"] = (
+            employee_restrictions["max_hours_year_employee"] * one_employee_info["capacity"]
+        )
+        employees[one_employee]["max_hours_week"] = (
+            employee_restrictions["max_hours_week_employee"] * one_employee_info["capacity"]
+        )
+
+    return employees
+
+
+def export_month(workbook, month_number, planning_data):
+    """Export month.
+
+    :param workbook:
+    :param month_number:
+    :param planning_data:
+    """
+    month = str(datetime.strptime(month_number, "%m").strftime("%B")).title()
+
+    df = planning_data[month_number]
+    df.columns = [datetime.strptime(col, "%d/%m/%y").strftime("%d") if "/" in col else col for col in df.columns]
+
+    worksheet = workbook.create_sheet(title=month)
+
+    worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(df.columns) + 1)
+    worksheet.cell(row=1, column=1, value=month)
+
+    r_idx = 2
+    for row in dataframe_to_rows(df, index=True, header=True):
+        if isinstance(row, FrozenList):
+            continue
+        c_idx = 1
+        for value in row:
+            cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            thin_border = Border(
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+            )
+            cell.border = thin_border
+            c_idx += 1
+        r_idx += 1
+
+    for cell in worksheet[1]:
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.font = Font(bold=True)
+        cell.border = thin_border
+
+    min_width = 3
+    for col in worksheet.iter_cols():
+        for cell in col:
+            if not any(cell.coordinate in merged_cell for merged_cell in worksheet.merged_cells.ranges):
+                column = cell.column_letter
+                worksheet.column_dimensions[column].width = min_width
+                break
+
+    column_letter = worksheet.cell(row=2, column=worksheet.max_column).column_letter
+    worksheet.column_dimensions[column_letter].width = 7
+    for cell in worksheet[column_letter]:
+        cell.alignment = Alignment(horizontal="center")
+
+    first_column_letter = worksheet.cell(row=1, column=1).column_letter
+    worksheet.column_dimensions[first_column_letter].width = 3
+
+    fill = PatternFill(start_color="0099FF", end_color="0099FF", fill_type="solid")
+    font = Font(color="FFFFFF", bold=True)
+
+    for cell in worksheet[1]:
+        cell.fill = fill
+        cell.font = font
+
+    weekend_fill = PatternFill(start_color="9CCCE8", end_color="9CCCE8", fill_type="solid")
+
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+
+    for col in worksheet.iter_cols(min_row=3, max_row=worksheet.max_row, min_col=2, max_col=worksheet.max_column):
+        day_of_week_cell = col[0]
+        if day_of_week_cell.value in ["S", "D"]:
+            for cell in col:
+                cell.fill = weekend_fill
+
+    for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal="center")
+
+
+def add_total_data(workbook, total_data):
+    """Add total data.
+
+    :param workbook:
+    :param total_data:
+    """
+    worksheet = workbook.create_sheet(title="Total")
+
+    for r_idx, row in enumerate(dataframe_to_rows(total_data, index=False, header=True), 1):
+        for c_idx, value in enumerate(row, 1):
+            cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            thin_border = Border(
+                left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin")
+            )
+            cell.border = thin_border
+
+    fill = PatternFill(start_color="0099FF", end_color="0099FF", fill_type="solid")
+    font = Font(color="FFFFFF", bold=True)
+
+    for cell in worksheet[1]:
+        cell.fill = fill
+        cell.font = font
