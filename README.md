@@ -1,22 +1,36 @@
-# planning
-Planning Management
+# Shift Planner
+
+## Project Description
+The Shift Planner is a tool designed to help manage and schedule work shifts for employees. It allows managers to create, modify, and view shift schedules, ensuring that all shifts are adequately covered.
 
 ## Changelog
 
 For a detailed list of changes, please refer to the [CHANGELOG](CHANGELOG.md).
 
-## Install 
+## Features
+- Create and edit shift schedules
+- Assign employees to shifts
+- View shift schedules by day, week, or month
+- Handle shift swaps and changes
+
+## Installation Instructions
+1. Clone the repository:
+    ```sh
+    git clone git@github.com:mguerrerof/shift-planner.git
+    ```
+2. Navigate to the project directory:
+3. Install the required dependencies:
+    ```sh
+    pip install -r requirements.txt
+    ```
 
 **Python version:** 3.13.0
+For more information on downloading Python, visit the [official Python downloads page](https://www.python.org/downloads/).
 
-Execute the following command from the project root:
-```
-pip install -r requirements.txt
-````
+This link points to the [official documentation for pandas](https://pandas.pydata.org/), a powerful and flexible open-source data analysis and manipulation library for Python. Pandas provides data structures like DataFrame and Series, which are essential for handling structured data efficiently.
 
-## Samples
-
-### Execution from VSCode:
+### Usage from VSCode:
+Add this configuration in the `launch.json`.
 ```json
 {
     "version": "0.2.0",
@@ -39,95 +53,80 @@ pip install -r requirements.txt
 }
 ```
 
-### Jupyter notebooks
-There are two Jupyter notebooks (`basic_planning.ipynb` and `advanced_planning.ipynb`) that allow the generation of schedules.
+### Usage from Jupyter notebooks
+There are two different example cases:
+- **case_1**: it contains a group of 6 employees: E1, E2, E3, E4, E5 and E6.
+- **case_2**: a company with 3 employees: E1, E2 and E3.
 
-### Num employees in each shift
+Templates are located in `src/notebooks` folder.
 
-![alt text](doc/all_employees_in_shift.png)
+Data associated to each case are located in `data/2025/<case>`. There are 3 files:
+- **config.json:** General information about the company.
+````json
+{
+    "start_date": "2025-01-01",
+    "num_days": 365,
+    "employee_restrictions": {
+        "hours_per_shift": 7.5,
+        "max_hours_week_employee": 37.5,
+        "max_hours_year_employee": 1852.5,
+        "min_weekend_rest_month_employee": 1,
+        "max_timeoff_employee": 2,
+        "shifts": [
+            "M",
+            "T"
+        ],
+        "max_persons_per_shift": {
+            "M": 1,
+            "T": 1
+        },
+        "min_persons_per_shift": {
+            "M": 1,
+            "T": 1
+        }
+    }
+}
+````
 
-### 3 employees:
-
-![alt text](doc/3_employees_with_2_shifts.png)
-
-### 30 days with 3 employees:
-
-![alt text](doc/30_days.png)
-
-### 30 days with 3 employees:
-
-![alt text](doc/30_days.png)
-
-### Process month:
-![alt text](doc/process_month.png)
-
-### Transpose table
-
-![alt text](doc/transpose_table_1.png)
-
-As can be seen in the screenshot, cells will appear in red when there are no people needed to cover the work positions.
-
-![alt text](doc/transpose_table_2.png)
-
-### Export to Excel
-```python
-output_filename = "samples/m_a_2025.xlsx"
-employees_info.index = pd.to_datetime(employees_info.index)
-employees_info.index = employees_info.index.strftime("%Y-%m-%d")
-employees_info.to_excel(output_filename, sheet_name="Shift Schedule")
+- **employees.yaml:** Information associated to each employee.
+```yaml
+E1:
+ capacity: 1
+ name: E1
+E2: 
+ capacity: 1
+ name: E2
+E3:
+ capacity: 1
+ name: E3 
 ```
 
-```python
-output_filename = "samples/m_a_2025_transpose.xlsx"
-transposed_employees_info.to_excel(output_filename, sheet_name="Shift Schedule")
-
-workbook = load_workbook(output_filename)
-worksheet = workbook["Shift Schedule"]
-
-worksheet.delete_rows(4)
-
-min_width = 3  # Puedes ajustar este valor según tus necesidades
-for col in worksheet.iter_cols():
-    for cell in col:
-        if not any(
-            cell.coordinate in merged_cell
-            for merged_cell in worksheet.merged_cells.ranges
-        ):
-            column = cell.column_letter  # Obtener la letra de la columna
-            worksheet.column_dimensions[column].width = min_width
-            break
-
-fill = PatternFill(start_color="0099FF", end_color="0099FF", fill_type="solid")
-font = Font(color="FFFFFF", bold=True)
-
-for cell in worksheet[1]:
-    cell.fill = fill
-    cell.font = font
-
-weekend_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-
-thin_border = Border(
-    left=Side(style="thin"),
-    right=Side(style="thin"),
-    top=Side(style="thin"),
-    bottom=Side(style="thin"),
-)
-
-for col in worksheet.iter_cols(
-    min_row=2, max_row=worksheet.max_row, min_col=2, max_col=worksheet.max_column
-):
-    day_of_week_cell = col[0]
-    if day_of_week_cell.value in ["S", "D"]:
-        for cell in col:
-            cell.fill = weekend_fill
-
-for row in worksheet.iter_rows(
-    min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column
-):
-    for cell in row:
-        cell.border = thin_border
-
-
-workbook.save(output_filename)
+- **vacations.yaml:** Vacations days associated to each employee.
+```yaml
+E1:
+  - 2025-01-01
+E2:
+E3:
+  - 2025-01-01
+  - 2025-01-02
+  - 2025-01-03
 ```
 
+Files will be generated in `output/2025/<case>`folder.
+
+Examples:
+
+#### planning_generated
+![alt text](doc/planning_generated.png)
+
+#### planning_generated with styles
+![alt text](doc/planning_generated_with_styles.png)
+
+#### planning_generated from xlsx
+![alt text](doc/planning_generated_from_xlsx.png)
+
+![alt text](doc/planning_total.png)
+
+- **THT**: Total hours worked.
+- **MHT**: Maximum hours to work.
+- **Diff** : MHT - THT.
