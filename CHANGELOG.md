@@ -2,6 +2,10 @@
 
 All significant notes for this project will be documented in this file.
 
+## [0.0.8] - 2024-12-24
+- New refactor
+- Improved the generator algorithn.
+
 ## [0.0.7] - 2024-12-24
 - New refactor. Data can be load from data folder.
 - Data can be loaded from data.yaml.
